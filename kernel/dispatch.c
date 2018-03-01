@@ -84,6 +84,9 @@ void remove_ready_queue(PROCESS proc)
 void become_zombie()
 {
     active_proc->state = STATE_ZOMBIE;
+    remove_ready_queue(active_proc)
+    resign();
+    //If resign is called, while(1) will never execute
     while (1);
 }
 
@@ -128,6 +131,42 @@ PROCESS dispatcher()
  */
 void resign()
 {
+	/*
+		PUSHL	%EAX 		Save current process' content
+		PUSHL	%ECX
+		PUSHL	%EDX
+		PUSHL	%EBX
+		PUSHL	%EBP
+		PUSHL	%ESI
+		PUSHL	%EDI
+	*/
+	asm("pushl %eax;pushl %ecx;pushl %edx");
+	asm("pushl %ebx;pushl %ebp;pushl %esi;pushl %edi");
+
+	// Save the context pointer SS:ESP to the PCB
+	asm("movl %%esp,%0": "=r"(active_proc->esp):);
+
+	// Dispatch new process
+	active_proc = dispatcher();
+
+	// Restore context pointer SS:ESP
+	asm("movl %0,%%esp": :"r"(active_proc->esp));
+
+	/*
+		POPL	%EDI 		Restore previously saved content
+		POPL	%ESI
+		POPL	%EBP
+		POPL	%EBX
+		POPL	%EDX
+		POPL	%ECX
+		POPL	%EAX
+		RET 				Return to new process
+	*/
+
+	asm("popl %edi;popl %esi;popl %ebp;popl %ebx");
+	asm("popl %edx;popl %ecx;popl %eax");
+	asm("ret")
+
 }
 
 
