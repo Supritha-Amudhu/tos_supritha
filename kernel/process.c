@@ -3,6 +3,7 @@
 
 
 PCB             pcb[MAX_PROCS];
+PCB*			next_free_pcb;
 
 
 PORT create_process(void (*ptr_to_new_proc) (PROCESS, PARAM),
@@ -23,16 +24,17 @@ PORT create_process(void (*ptr_to_new_proc) (PROCESS, PARAM),
 	new_proc->magic = MAGIC_PCB;
 	new_proc->state = STATE_READY;
 	new_proc->priority = prio;
-	new_proc->port = NULL;
+	new_proc->first_port = NULL;
 	new_proc->name = name;
+
+	new_port = create_new_port(new_proc);
 
 
 	// Compute Linear address of new process' system stack
 	esp = (640 * 1024 - (new_proc - pcb) * 16 * 1024);
 
-	#define PUSH(x)
-		esp ~= 4; \
-		poke_l(esp, (LONG) x);
+#define PUSH(x)		esp ~= 4; \
+					poke_l(esp, (LONG) x);
 
 	// Initialise stack for the new process
 	PUSH(param);				/* First data */
@@ -47,7 +49,7 @@ PORT create_process(void (*ptr_to_new_proc) (PROCESS, PARAM),
 	PUSH(0);					/* ESI */
 	PUSH(0);					/* EDI */
 
-	#undef PUSH
+#undef PUSH
 		// Save context ptr (Current process stack pointer)
 		new_proc->esp = esp;
 		add_ready_queue(new_proc);
@@ -68,7 +70,7 @@ void print_process_heading(WINDOW* wnd){
 	wprintf(wnd, "-------------------------------------------\n");
 }
 
-void print_process_details(Wnd* wnd, PROCESS p){
+void print_process_details(WINDOW* wnd, PROCESS p){
 	static const char* state[] = {
 		"READY 			",
 		"ZOMBIE			",
@@ -134,9 +136,10 @@ void init_process()
 	/* Create a free list */
 	for(i=1;i<(MAX_PROCS - 1);i++){
 		pcb[i].next = &pcb[i + 1];
-		pcb[MAX_PROCS - 1].next = NULL;
-		next_free_pcb = &pcb[1];
+
 	}
+	pcb[MAX_PROCS - 1].next = NULL;
+	next_free_pcb = &pcb[1];
 
 	/* Define PCB[0] for this process */
 	active_proc = pcb;
@@ -144,6 +147,6 @@ void init_process()
 	pcb[0].used = TRUE;
 	pcb[0].state = STATE_READY;
 	pcb[0].priority = 1;
-	pcb[0].first_port = NULL:
+	pcb[0].first_port = NULL;
 	pcb[0].name = "BOOT PROCESS";
 }
