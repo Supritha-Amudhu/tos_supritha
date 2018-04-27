@@ -1,7 +1,7 @@
 #include <kernel.h>
 
 PORT next_free_port;
-PORT_DEF port[MAX_PORTS]
+PORT_DEF port[MAX_PORTS];
 
 
 
@@ -27,6 +27,7 @@ PORT create_new_port(PROCESS owner)
 	p->blocked_list_tail = NULL;
 	p->open = TRUE;
 	if(owner->first_port == NULL){
+		owner->first_port = p;
 		p->next = NULL;
 	}
 	else{
@@ -107,7 +108,7 @@ void message(PORT dest_port, void *data)
 	dest = dest_port->owner;
 	assert(dest->magic == MAGIC_PCB);
 
-	if(dest_port->open == TRUE && dest->state == STATE_RECEVE_BLOCKED){
+	if(dest_port->open == TRUE && dest->state == STATE_RECEIVE_BLOCKED){
 		dest->param_proc = active_proc;
 		dest->param_data = data;
 		add_ready_queue(dest);

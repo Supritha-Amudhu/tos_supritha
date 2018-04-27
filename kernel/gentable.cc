@@ -13,8 +13,8 @@ int main()
 {
 	cout << "static int table[256] = {" << endl;
 	int j = 0;
-	for(int i=0;i <=8; i++){
-		for( ; j < (int) pow ((float) 2, (float i); j++)){
+	for(int i=0; i<=8; i++){
+		for( ; j < (int) pow ((float) 2, (float) i); j++){
 			if(j != 0){
 				cout << ", ";
 				cout << i - 1;

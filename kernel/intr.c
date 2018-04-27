@@ -25,9 +25,97 @@ void load_idt(IDT * base)
 
 void init_idt_entry(int intr_no, void (*isr) (void))
 {
+    idt[intr_no].offset_0_15 = (unsigned) isr & 0xffff;
+    idt[intr_no].offset_16_31 = ((unsigned) isr >> 16) & 0xffff;
+    idt[intr_no].selector = CODE_SELECTOR;
+    idt[intr_no].dword_count = 0;
+    idt[intr_no].unused = 0;
+    idt[intr_no].type = 0xe;
+    idt[intr_no].dt = 0;
+    idt[intr_no].dpl = 0;
+    idt[intr_no].p = 1;
 }
 
 
+void fatal_exception(int n){
+    WINDOW error_window = {0, 24, 80, 1, 0, 0, ' '};
+
+    wprintf(&error_window, "Fatal exception %d (%s)", n, active_proc->name);
+    while(42);
+}
+
+
+void exception0(){
+    fatal_exception(0);
+}
+
+void exception1(){
+    fatal_exception(1);
+}
+
+void exception2(){
+    fatal_exception(2);
+}
+
+void exception3(){
+    fatal_exception(3);
+}
+
+void exception4(){
+    fatal_exception(4);
+}
+
+void exception5(){
+    fatal_exception(5);
+}
+
+void exception6(){
+    fatal_exception(6);
+}
+
+void exception7(){
+    fatal_exception(7);
+}
+
+void exception8(){
+    fatal_exception(8);
+}
+
+void exception9(){
+    fatal_exception(9);
+}
+
+void exception10(){
+    fatal_exception(10);
+}
+
+void exception11(){
+    fatal_exception(11);
+}
+
+void exception12(){
+    fatal_exception(12);
+}
+
+void exception13(){
+    fatal_exception(13);
+}
+
+void exception14(){
+    fatal_exception(14);
+}
+
+void exception15(){
+    fatal_exception(15);
+}
+
+void exception16(){
+    fatal_exception(16);
+}
+
+void spurious_int(){
+    asm("pusha;movb $0x20,%al;outb %al,$0x20;popa;iret");
+}
 
 
 /* 
@@ -35,10 +123,45 @@ void init_idt_entry(int intr_no, void (*isr) (void))
  */
 void isr_timer()
 {
+    /* 
+     *  PUSHL   %EAX            ; Save process' context
+     *  PUSHL   %ECX
+     *  PUSHL   %EDX
+     *  PUSHL   %EBX
+     *  PUSHL   %EBP
+     *  PUSHL   %ESI
+     *  PUSHL   %EDI
+     */
+    asm("pushl %eax;pushl %ecx;pushl %edx");
+    asm("pushl %ebx;pushl %ebp;pushl %esi;pushl %edi");
+    /* Save the context pointer ESP to the PCB */
+    asm("movl %%esp,%0": "=m"(active_proc->esp):);
+    /* Call the actual implementation of the ISR */
+    asm("call isr_timer_impl");
+    /* Restore context pointer ESP */
+    asm("movl %0,%%esp": :"m"(active_proc->esp));
+    /* 
+     *  MOVB  $0x20,%AL ; Reset interrupt controller
+     *  OUTB  %AL,$0x20
+     *  POPL  %EDI      ; Restore previously saved context
+     *  POPL  %ESI
+     *  POPL  %EBP
+     *  POPL  %EBX
+     *  POPL  %EDX
+     *  POPL  %ECX
+     *  POPL  %EAX
+     *  IRET            ; Return to new process
+     */
+    asm("movb $0x20,%al;outb %al,$0x20");
+    asm("popl %edi;popl %esi;popl %ebp;popl %ebx");
+    asm("popl %edx;popl %ecx;popl %eax");
+    asm("iret");   
 }
 
 void isr_timer_impl()
 {
+    // Dispatcher new process
+    active_proc = dispatcher();
 }
 
 
@@ -152,4 +275,35 @@ void re_program_interrupt_controller()
 
 void init_interrupts()
 {
+    int i;
+    assert(sizeof(IDT) == IDT_ENTRY_SIZE);
+    load_idt(idt);
+
+    for(i=0; i<MAX_INTERRUPTS; i++){
+        init_idt_entry(i, spurious_int);
+    }
+
+    init_idt_entry(0, exception0);
+    init_idt_entry(1, exception1);
+    init_idt_entry(2, exception2);
+    init_idt_entry(3, exception3);
+    init_idt_entry(4, exception4);
+    init_idt_entry(5, exception5);
+    init_idt_entry(6, exception6);
+    init_idt_entry(7, exception7);
+    init_idt_entry(8, exception8);
+    init_idt_entry(9, exception9);
+    init_idt_entry(10, exception10);
+    init_idt_entry(11, exception11);
+    init_idt_entry(12, exception12);
+    init_idt_entry(13, exception13);
+    init_idt_entry(14, exception14);
+    init_idt_entry(15, exception15);
+    init_idt_entry(16, exception16);
+    init_idt_entry(TIMER_IRQ, isr_timer);
+
+    re_program_interrupt_controller();
+    interrupts_initialized = TRUE;
+    asm("sti");
+
 }

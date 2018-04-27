@@ -12,6 +12,8 @@ PORT create_process(void (*ptr_to_new_proc) (PROCESS, PARAM),
 	MEM_ADDR		esp;
 	PROCESS 		new_proc;
 	PORT  			new_port;
+	volatile int flag;
+	DISABLE_INTR(flag);
 	if(prio >= MAX_READY_QUEUES){
 		panic("create(): Bad priority");
 	}
@@ -20,6 +22,7 @@ PORT create_process(void (*ptr_to_new_proc) (PROCESS, PARAM),
 	}
 	new_proc = next_free_pcb;
 	next_free_pcb = new_proc->next;
+	ENABLE_INTR(flag);
 	new_proc-> used = TRUE;
 	new_proc->magic = MAGIC_PCB;
 	new_proc->state = STATE_READY;
@@ -33,13 +36,20 @@ PORT create_process(void (*ptr_to_new_proc) (PROCESS, PARAM),
 	// Compute Linear address of new process' system stack
 	esp = (640 * 1024 - (new_proc - pcb) * 16 * 1024);
 
-#define PUSH(x)		esp ~= 4; \
+#define PUSH(x)		esp -= 4; \
 					poke_l(esp, (LONG) x);
 
 	// Initialise stack for the new process
 	PUSH(param);				/* First data */
 	PUSH(new_proc);				/* Self */
 	PUSH(0);					/* Dummy return address */
+	if(interrupts_initialized){ /* Push EFlags value */
+		PUSH(512);
+	}
+	else{
+		PUSH(0);
+	}
+	PUSH(CODE_SELECTOR);		/* Kernel code selector */
 	PUSH(ptr_to_new_proc);		/* Entry point of new process */
 	PUSH(0);					/* EAX */
 	PUSH(0);					/* ECX */
@@ -54,7 +64,7 @@ PORT create_process(void (*ptr_to_new_proc) (PROCESS, PARAM),
 		new_proc->esp = esp;
 		add_ready_queue(new_proc);
 
-		return NULL;
+		return new_port;
 
 
 }
@@ -129,8 +139,8 @@ void init_process()
 
 	/* Initialize or clear all PCBs. The first PCB is for Booting */
 	for(i=1; i<MAX_PROCS; i++){
-		PCB[i].magic = 0;
-		PCB[i].used = FALSE;
+		pcb[i].magic = 0;
+		pcb[i].used = FALSE;
 	}
 
 	/* Create a free list */
@@ -138,7 +148,7 @@ void init_process()
 		pcb[i].next = &pcb[i + 1];
 
 	}
-	pcb[MAX_PROCS - 1].next = NULL;
+	pcb[(MAX_PROCS - 1)].next = NULL;
 	next_free_pcb = &pcb[1];
 
 	/* Define PCB[0] for this process */

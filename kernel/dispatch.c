@@ -84,7 +84,7 @@ void remove_ready_queue(PROCESS proc)
 void become_zombie()
 {
     active_proc->state = STATE_ZOMBIE;
-    remove_ready_queue(active_proc)
+    remove_ready_queue(active_proc);
     resign();
     //If resign is called, while(1) will never execute
     while (1);
@@ -140,6 +140,8 @@ void resign()
 		PUSHL	%ESI
 		PUSHL	%EDI
 	*/
+	asm("pushfl;cli;popl %eax;xchgl (%esp),%eax");
+	asm("push %cs;pushl %eax");
 	asm("pushl %eax;pushl %ecx;pushl %edx");
 	asm("pushl %ebx;pushl %ebp;pushl %esi;pushl %edi");
 
@@ -165,7 +167,7 @@ void resign()
 
 	asm("popl %edi;popl %esi;popl %ebp;popl %ebx");
 	asm("popl %edx;popl %ecx;popl %eax");
-	asm("ret")
+	asm("iret");
 
 }
 
